@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import {
-    ArrowLeft,
     ArrowRight,
     ArrowUpRight,
     CalendarDays,
@@ -12,7 +11,7 @@ import {
     Search,
     X,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface NewsItem {
     id: number;
@@ -35,8 +34,22 @@ const props = withDefaults(
 const mobileMenuOpen = ref(false);
 const search = ref('');
 const activeCategory = ref('Semua');
+const pageReady = ref(false);
 
-const fallbackNews: NewsItem[] = [
+onMounted(() => {
+    requestAnimationFrame(() => {
+        pageReady.value = true;
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Dummy News
+|--------------------------------------------------------------------------
+| Sementara digunakan sebelum berita terhubung ke database.
+|--------------------------------------------------------------------------
+*/
+const dummyNews: NewsItem[] = [
     {
         id: 1,
         title: 'Pengurus Pusat Gelar Rapat Koordinasi Nasional',
@@ -95,13 +108,11 @@ const fallbackNews: NewsItem[] = [
 
 /*
 |--------------------------------------------------------------------------
-| Data
+| News Data
 |--------------------------------------------------------------------------
-| Sementara menggunakan dummy apabila backend belum mengirim data.
-| Ketika backend sudah siap, fallbackNews bisa dihapus.
 */
 const displayedNews = computed(() =>
-    props.news.length ? props.news : fallbackNews,
+    props.news.length ? props.news : dummyNews,
 );
 
 const categories = computed(() => {
@@ -136,7 +147,10 @@ const otherNews = computed(() => filteredNews.value.slice(1));
 <template>
     <Head title="Berita & Informasi" />
 
-    <div class="min-h-screen bg-white font-sans text-slate-950">
+    <div
+        class="min-h-screen bg-white font-sans text-slate-950 transition-opacity duration-700"
+        :class="pageReady ? 'opacity-100' : 'opacity-0'"
+    >
         <!-- Navbar -->
         <header
             class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl"
@@ -145,7 +159,10 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                 class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
             >
                 <!-- Logo -->
-                <Link href="/" class="group flex items-center gap-3">
+                <Link
+                    href="/"
+                    class="group flex items-center gap-3"
+                >
                     <div
                         class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm transition-transform duration-300 group-hover:-rotate-3"
                     >
@@ -158,6 +175,7 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                         >
                             ORGANISASI
                         </div>
+
                         <div
                             class="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"
                         >
@@ -194,17 +212,18 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                         class="relative text-sm font-bold text-slate-950"
                     >
                         Berita
+
                         <span
                             class="absolute -bottom-[27px] left-0 h-0.5 w-full rounded-full bg-slate-950"
                         />
                     </Link>
                 </nav>
 
-                <!-- Desktop Login -->
+                <!-- Login -->
                 <div class="hidden md:block">
                     <Link
                         href="/login"
-                        class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800"
+                        class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg"
                     >
                         Login
                         <ArrowUpRight class="h-4 w-4" />
@@ -214,72 +233,90 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                 <!-- Mobile Button -->
                 <button
                     type="button"
-                    class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700 md:hidden"
                     aria-label="Toggle menu"
+                    class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition duration-300 hover:bg-slate-50 md:hidden"
                     @click="mobileMenuOpen = !mobileMenuOpen"
                 >
-                    <X v-if="mobileMenuOpen" class="h-5 w-5" />
-                    <Menu v-else class="h-5 w-5" />
+                    <X
+                        v-if="mobileMenuOpen"
+                        class="h-5 w-5"
+                    />
+
+                    <Menu
+                        v-else
+                        class="h-5 w-5"
+                    />
                 </button>
             </div>
 
             <!-- Mobile Navigation -->
-            <div
-                v-if="mobileMenuOpen"
-                class="border-t border-slate-200 bg-white md:hidden"
+            <Transition
+                enter-active-class="transition-all duration-300 ease-out"
+                enter-from-class="-translate-y-3 opacity-0"
+                enter-to-class="translate-y-0 opacity-100"
+                leave-active-class="transition-all duration-200 ease-in"
+                leave-from-class="translate-y-0 opacity-100"
+                leave-to-class="-translate-y-3 opacity-0"
             >
-                <nav class="mx-auto flex max-w-7xl flex-col px-4 py-4 sm:px-6">
-                    <Link
-                        href="/"
-                        class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                        @click="mobileMenuOpen = false"
+                <div
+                    v-if="mobileMenuOpen"
+                    class="border-t border-slate-200 bg-white md:hidden"
+                >
+                    <nav
+                        class="mx-auto flex max-w-7xl flex-col px-4 py-4 sm:px-6"
                     >
-                        Beranda
-                    </Link>
+                        <Link
+                            href="/"
+                            class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Beranda
+                        </Link>
 
-                    <a
-                        href="/#tentang"
-                        class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                        @click="mobileMenuOpen = false"
-                    >
-                        Tentang
-                    </a>
+                        <a
+                            href="/#tentang"
+                            class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Tentang
+                        </a>
 
-                    <a
-                        href="/#fitur"
-                        class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                        @click="mobileMenuOpen = false"
-                    >
-                        Fitur
-                    </a>
+                        <a
+                            href="/#fitur"
+                            class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Fitur
+                        </a>
 
-                    <Link
-                        href="/berita"
-                        class="rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950"
-                        @click="mobileMenuOpen = false"
-                    >
-                        Berita
-                    </Link>
+                        <Link
+                            href="/berita"
+                            class="rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Berita
+                        </Link>
 
-                    <Link
-                        href="/login"
-                        class="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white"
-                        @click="mobileMenuOpen = false"
-                    >
-                        Login
-                        <ArrowUpRight class="h-4 w-4" />
-                    </Link>
-                </nav>
-            </div>
+                        <Link
+                            href="/login"
+                            class="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Login
+                            <ArrowUpRight class="h-4 w-4" />
+                        </Link>
+                    </nav>
+                </div>
+            </Transition>
         </header>
 
         <main>
             <!-- Hero -->
             <section class="relative overflow-hidden">
-                <!-- Background decoration -->
                 <div
                     class="pointer-events-none absolute -left-32 -top-40 h-96 w-96 rounded-full bg-blue-100/70 blur-3xl"
                 />
+
                 <div
                     class="pointer-events-none absolute -right-32 top-20 h-96 w-96 rounded-full bg-cyan-100/60 blur-3xl"
                 />
@@ -287,7 +324,14 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                 <div
                     class="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 md:pb-20 md:pt-24 lg:px-8"
                 >
-                    <div class="max-w-3xl">
+                    <div
+                        class="max-w-3xl transition-all duration-700 ease-out"
+                        :class="
+                            pageReady
+                                ? 'translate-y-0 opacity-100'
+                                : 'translate-y-8 opacity-0'
+                        "
+                    >
                         <div
                             class="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-500 shadow-sm"
                         >
@@ -299,7 +343,9 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                             class="text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl"
                         >
                             Berita &
-                            <span class="text-blue-600">kegiatan.</span>
+                            <span class="text-blue-600">
+                                kegiatan.
+                            </span>
                         </h1>
 
                         <p
@@ -320,9 +366,13 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                 >
                     <!-- Search & Filter -->
                     <div
-                        class="mb-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+                        class="mb-10 flex flex-col gap-4 transition-all duration-700 ease-out lg:flex-row lg:items-center lg:justify-between"
+                        :class="
+                            pageReady
+                                ? 'translate-y-0 opacity-100'
+                                : 'translate-y-8 opacity-0'
+                        "
                     >
-                        <!-- Search -->
                         <div class="relative w-full lg:max-w-md">
                             <Search
                                 class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -336,7 +386,6 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                             />
                         </div>
 
-                        <!-- Categories -->
                         <div
                             class="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
                         >
@@ -344,7 +393,7 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                 v-for="category in categories"
                                 :key="category"
                                 type="button"
-                                class="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition"
+                                class="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition duration-300"
                                 :class="
                                     activeCategory === category
                                         ? 'bg-slate-950 text-white shadow-sm'
@@ -374,22 +423,27 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                             Berita tidak ditemukan
                         </h2>
 
-                        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                        <p
+                            class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500"
+                        >
                             Coba gunakan kata kunci lain atau pilih kategori
                             yang berbeda.
                         </p>
                     </div>
 
                     <template v-else>
-                        <!-- Featured -->
-                        <div
+                        <!-- Featured News -->
+                        <article
                             v-if="featuredNews"
-                            class="group relative mb-10 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                            class="group relative mb-10 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-700 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60"
+                            :class="
+                                pageReady
+                                    ? 'translate-y-0 opacity-100'
+                                    : 'translate-y-8 opacity-0'
+                            "
+                            style="transition-delay: 100ms"
                         >
-                            <div
-                                class="grid min-h-[420px] lg:grid-cols-2"
-                            >
-                                <!-- Image -->
+                            <div class="grid min-h-[420px] lg:grid-cols-2">
                                 <div
                                     class="relative min-h-[280px] overflow-hidden bg-slate-100 lg:min-h-full"
                                 >
@@ -413,24 +467,12 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                             style="
                                                 background-image:
                                                     linear-gradient(
-                                                        rgba(
-                                                            255,
-                                                            255,
-                                                            255,
-                                                            0.16
-                                                        )
-                                                        1px,
+                                                        rgba(255, 255, 255, 0.16) 1px,
                                                         transparent 1px
                                                     ),
                                                     linear-gradient(
                                                         90deg,
-                                                        rgba(
-                                                            255,
-                                                            255,
-                                                            255,
-                                                            0.16
-                                                        )
-                                                        1px,
+                                                        rgba(255, 255, 255, 0.16) 1px,
                                                         transparent 1px
                                                     );
                                                 background-size: 32px 32px;
@@ -441,11 +483,10 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                     <div
                                         class="absolute left-5 top-5 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-slate-950 shadow-sm"
                                     >
-                                        Featured
+                                        {{ featuredNews.category }}
                                     </div>
                                 </div>
 
-                                <!-- Content -->
                                 <div
                                     class="flex flex-col justify-center p-7 sm:p-10 lg:p-12"
                                 >
@@ -466,6 +507,7 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                             <CalendarDays
                                                 class="h-3.5 w-3.5"
                                             />
+
                                             {{ featuredNews.date }}
                                         </span>
                                     </div>
@@ -483,31 +525,38 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                     </p>
 
                                     <div class="mt-8">
-                                        <Link
-                                            :href="`/berita/${featuredNews.id}`"
-                                            class="group/link inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-600"
+                                        <span
+                                            class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800"
                                         >
                                             Baca selengkapnya
+
                                             <ArrowRight
-                                                class="h-4 w-4 transition-transform group-hover/link:translate-x-1"
+                                                class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
                                             />
-                                        </Link>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </article>
 
-                        <!-- News Grid -->
+                        <!-- Other News -->
                         <div
                             v-if="otherNews.length"
                             class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
                         >
                             <article
-                                v-for="item in otherNews"
+                                v-for="(item, index) in otherNews"
                                 :key="item.id"
-                                class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50"
+                                class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-700 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50"
+                                :class="
+                                    pageReady
+                                        ? 'translate-y-0 opacity-100'
+                                        : 'translate-y-8 opacity-0'
+                                "
+                                :style="{
+                                    transitionDelay: `${180 + index * 100}ms`,
+                                }"
                             >
-                                <!-- Image -->
                                 <div
                                     class="relative aspect-[16/9] overflow-hidden bg-slate-100"
                                 >
@@ -531,24 +580,12 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                             style="
                                                 background-image:
                                                     linear-gradient(
-                                                        rgba(
-                                                            255,
-                                                            255,
-                                                            255,
-                                                            0.16
-                                                        )
-                                                        1px,
+                                                        rgba(255, 255, 255, 0.16) 1px,
                                                         transparent 1px
                                                     ),
                                                     linear-gradient(
                                                         90deg,
-                                                        rgba(
-                                                            255,
-                                                            255,
-                                                            255,
-                                                            0.16
-                                                        )
-                                                        1px,
+                                                        rgba(255, 255, 255, 0.16) 1px,
                                                         transparent 1px
                                                     );
                                                 background-size: 28px 28px;
@@ -563,14 +600,12 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                     </div>
                                 </div>
 
-                                <!-- Content -->
-                                <div
-                                    class="flex flex-1 flex-col p-6"
-                                >
+                                <div class="flex flex-1 flex-col p-6">
                                     <div
                                         class="flex items-center gap-2 text-xs font-semibold text-slate-400"
                                     >
                                         <CalendarDays class="h-3.5 w-3.5" />
+
                                         {{ item.date }}
                                     </div>
 
@@ -587,15 +622,15 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                     </p>
 
                                     <div class="mt-auto pt-6">
-                                        <Link
-                                            :href="`/berita/${item.id}`"
-                                            class="inline-flex items-center gap-2 text-sm font-extrabold text-slate-950 transition hover:text-blue-600"
+                                        <span
+                                            class="inline-flex items-center gap-2 text-sm font-extrabold text-slate-950 transition group-hover:text-blue-600"
                                         >
                                             Baca berita
+
                                             <ChevronRight
                                                 class="h-4 w-4 transition-transform group-hover:translate-x-1"
                                             />
-                                        </Link>
+                                        </span>
                                     </div>
                                 </div>
                             </article>
@@ -618,7 +653,12 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                     class="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8"
                 >
                     <div
-                        class="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center"
+                        class="flex flex-col items-start justify-between gap-8 transition-all duration-700 ease-out md:flex-row md:items-center"
+                        :class="
+                            pageReady
+                                ? 'translate-y-0 opacity-100'
+                                : 'translate-y-8 opacity-0'
+                        "
                     >
                         <div class="max-w-2xl">
                             <div
@@ -644,7 +684,7 @@ const otherNews = computed(() => filteredNews.value.slice(1));
 
                         <Link
                             href="/login"
-                            class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-extrabold text-slate-950 transition hover:bg-blue-50"
+                            class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-extrabold text-slate-950 transition duration-300 hover:-translate-y-0.5 hover:bg-blue-50"
                         >
                             Masuk ke sistem
                             <ArrowUpRight class="h-4 w-4" />
