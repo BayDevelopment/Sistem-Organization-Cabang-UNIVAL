@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import {
     ArrowRight,
+    ArrowUp,
     ArrowUpRight,
     CalendarDays,
     ChevronRight,
@@ -11,7 +12,7 @@ import {
     Search,
     X,
 } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 interface NewsItem {
     id: number;
@@ -31,22 +32,20 @@ const props = withDefaults(
     },
 );
 
+/*
+|--------------------------------------------------------------------------
+| UI State
+|--------------------------------------------------------------------------
+*/
 const mobileMenuOpen = ref(false);
 const search = ref('');
 const activeCategory = ref('Semua');
 const pageReady = ref(false);
-
-onMounted(() => {
-    requestAnimationFrame(() => {
-        pageReady.value = true;
-    });
-});
+const showBackToTop = ref(false);
 
 /*
 |--------------------------------------------------------------------------
 | Dummy News
-|--------------------------------------------------------------------------
-| Sementara digunakan sebelum berita terhubung ke database.
 |--------------------------------------------------------------------------
 */
 const dummyNews: NewsItem[] = [
@@ -142,21 +141,60 @@ const filteredNews = computed(() => {
 const featuredNews = computed(() => filteredNews.value[0] ?? null);
 
 const otherNews = computed(() => filteredNews.value.slice(1));
+
+/*
+|--------------------------------------------------------------------------
+| Scroll
+|--------------------------------------------------------------------------
+*/
+function handleScroll() {
+    showBackToTop.value = window.scrollY > 500;
+}
+
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Lifecycle
+|--------------------------------------------------------------------------
+*/
+onMounted(() => {
+    window.addEventListener('scroll', handleScroll, {
+        passive: true,
+    });
+
+    handleScroll();
+
+    requestAnimationFrame(() => {
+        pageReady.value = true;
+    });
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('scroll', handleScroll);
+});
 </script>
 
 <template>
     <Head title="Berita & Informasi" />
 
     <div
-        class="min-h-screen bg-white font-sans text-slate-950 transition-opacity duration-700"
-        :class="pageReady ? 'opacity-100' : 'opacity-0'"
+        class="min-h-screen overflow-x-hidden bg-white font-sans text-slate-950"
+        :class="pageReady ? 'page-loaded' : 'page-loading'"
     >
-        <!-- Navbar -->
+        <!-- ========================================================= -->
+        <!-- HEADER / NAVBAR - SAME AS WELCOME -->
+        <!-- ========================================================= -->
         <header
-            class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl"
+            class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl"
         >
             <div
-                class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+                class="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8"
             >
                 <!-- Logo -->
                 <Link
@@ -164,77 +202,91 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                     class="group flex items-center gap-3"
                 >
                     <div
-                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm transition-transform duration-300 group-hover:-rotate-3"
+                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950 transition-transform duration-300 group-hover:rotate-3"
                     >
-                        <Network class="h-5 w-5" />
+                        OM
                     </div>
 
-                    <div class="leading-none">
+                    <div class="hidden sm:block">
                         <div
-                            class="text-sm font-extrabold tracking-tight text-slate-950"
+                            class="text-[11px] font-bold tracking-[0.28em] text-white"
                         >
-                            ORGANISASI
+                            ORGANIZATION
                         </div>
 
                         <div
-                            class="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"
+                            class="text-[9px] font-medium tracking-[0.22em] text-slate-400"
                         >
-                            Management System
+                            MANAGEMENT SYSTEM
                         </div>
                     </div>
                 </Link>
 
                 <!-- Desktop Navigation -->
-                <nav class="hidden items-center gap-8 md:flex">
+                <nav class="hidden items-center gap-8 lg:flex">
                     <Link
                         href="/"
-                        class="text-sm font-semibold text-slate-500 transition hover:text-slate-950"
+                        class="text-sm font-medium text-slate-300 transition hover:text-white"
                     >
                         Beranda
                     </Link>
 
-                    <a
-                        href="/#tentang"
-                        class="text-sm font-semibold text-slate-500 transition hover:text-slate-950"
+                    <Link
+                        href="/#profil"
+                        class="text-sm font-medium text-slate-300 transition hover:text-white"
                     >
-                        Tentang
-                    </a>
-
-                    <a
-                        href="/#fitur"
-                        class="text-sm font-semibold text-slate-500 transition hover:text-slate-950"
-                    >
-                        Fitur
-                    </a>
+                        Profil
+                    </Link>
 
                     <Link
+                        href="/#struktur"
+                        class="text-sm font-medium text-slate-300 transition hover:text-white"
+                    >
+                        Struktur
+                    </Link>
+
+                    <Link
+                        href="/#ranting"
+                        class="text-sm font-medium text-slate-300 transition hover:text-white"
+                    >
+                        Ranting & Unit
+                    </Link>
+
+                    <Link
+                        href="/#kegiatan"
+                        class="text-sm font-medium text-slate-300 transition hover:text-white"
+                    >
+                        Kegiatan
+                    </Link>
+
+                    <!-- Active News -->
+                    <Link
                         href="/berita"
-                        class="relative text-sm font-bold text-slate-950"
+                        class="relative text-sm font-bold text-white"
                     >
                         Berita
 
                         <span
-                            class="absolute -bottom-[27px] left-0 h-0.5 w-full rounded-full bg-slate-950"
+                            class="absolute -bottom-[30px] left-0 h-0.5 w-full rounded-full bg-white"
                         />
                     </Link>
                 </nav>
 
                 <!-- Login -->
-                <div class="hidden md:block">
+                <div class="hidden items-center gap-3 lg:flex">
                     <Link
                         href="/login"
-                        class="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg"
+                        class="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
                     >
-                        Login
-                        <ArrowUpRight class="h-4 w-4" />
+                        Masuk
                     </Link>
                 </div>
 
                 <!-- Mobile Button -->
                 <button
                     type="button"
+                    class="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 text-white transition hover:bg-white/5 lg:hidden"
                     aria-label="Toggle menu"
-                    class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition duration-300 hover:bg-slate-50 md:hidden"
                     @click="mobileMenuOpen = !mobileMenuOpen"
                 >
                     <X
@@ -251,47 +303,61 @@ const otherNews = computed(() => filteredNews.value.slice(1));
 
             <!-- Mobile Navigation -->
             <Transition
-                enter-active-class="transition-all duration-300 ease-out"
-                enter-from-class="-translate-y-3 opacity-0"
-                enter-to-class="translate-y-0 opacity-100"
-                leave-active-class="transition-all duration-200 ease-in"
-                leave-from-class="translate-y-0 opacity-100"
-                leave-to-class="-translate-y-3 opacity-0"
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0 -translate-y-2"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-2"
             >
                 <div
                     v-if="mobileMenuOpen"
-                    class="border-t border-slate-200 bg-white md:hidden"
+                    class="border-t border-white/10 bg-slate-950 px-5 py-5 lg:hidden"
                 >
-                    <nav
-                        class="mx-auto flex max-w-7xl flex-col px-4 py-4 sm:px-6"
-                    >
+                    <nav class="flex flex-col gap-2">
                         <Link
                             href="/"
-                            class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                            class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                             @click="mobileMenuOpen = false"
                         >
                             Beranda
                         </Link>
 
-                        <a
-                            href="/#tentang"
-                            class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                        <Link
+                            href="/#profil"
+                            class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                             @click="mobileMenuOpen = false"
                         >
-                            Tentang
-                        </a>
+                            Profil
+                        </Link>
 
-                        <a
-                            href="/#fitur"
-                            class="rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                        <Link
+                            href="/#struktur"
+                            class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                             @click="mobileMenuOpen = false"
                         >
-                            Fitur
-                        </a>
+                            Struktur
+                        </Link>
+
+                        <Link
+                            href="/#ranting"
+                            class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Ranting & Unit
+                        </Link>
+
+                        <Link
+                            href="/#kegiatan"
+                            class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+                            @click="mobileMenuOpen = false"
+                        >
+                            Kegiatan
+                        </Link>
 
                         <Link
                             href="/berita"
-                            class="rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950"
+                            class="rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white"
                             @click="mobileMenuOpen = false"
                         >
                             Berita
@@ -299,30 +365,50 @@ const otherNews = computed(() => filteredNews.value.slice(1));
 
                         <Link
                             href="/login"
-                            class="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                            class="mt-3 rounded-xl bg-white px-4 py-3 text-center text-sm font-bold text-slate-950 transition hover:bg-slate-200"
                             @click="mobileMenuOpen = false"
                         >
-                            Login
-                            <ArrowUpRight class="h-4 w-4" />
+                            Masuk ke Sistem
                         </Link>
                     </nav>
                 </div>
             </Transition>
         </header>
 
+        <!-- ========================================================= -->
+        <!-- MAIN -->
+        <!-- ========================================================= -->
         <main>
             <!-- Hero -->
-            <section class="relative overflow-hidden">
+            <section
+                class="relative overflow-hidden bg-slate-950 pb-20 pt-40 text-white sm:pb-24"
+            >
+                <!-- Background blobs -->
                 <div
-                    class="pointer-events-none absolute -left-32 -top-40 h-96 w-96 rounded-full bg-blue-100/70 blur-3xl"
+                    class="pointer-events-none absolute -left-40 top-20 h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl blob blob-one"
                 />
 
                 <div
-                    class="pointer-events-none absolute -right-32 top-20 h-96 w-96 rounded-full bg-cyan-100/60 blur-3xl"
+                    class="pointer-events-none absolute right-[-12rem] top-10 h-[34rem] w-[34rem] rounded-full bg-blue-500/20 blur-3xl blob blob-two"
                 />
 
                 <div
-                    class="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 md:pb-20 md:pt-24 lg:px-8"
+                    class="pointer-events-none absolute bottom-[-14rem] left-1/3 h-[30rem] w-[30rem] rounded-full bg-violet-500/15 blur-3xl blob blob-three"
+                />
+
+                <!-- Grid -->
+                <div
+                    class="pointer-events-none absolute inset-0 opacity-[0.06]"
+                    style="
+                        background-image:
+                            linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px);
+                        background-size: 44px 44px;
+                    "
+                />
+
+                <div
+                    class="relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8"
                 >
                     <div
                         class="max-w-3xl transition-all duration-700 ease-out"
@@ -333,45 +419,57 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                         "
                     >
                         <div
-                            class="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-500 shadow-sm"
+                            class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-300 backdrop-blur"
                         >
+                            <span
+                                class="h-2 w-2 rounded-full bg-emerald-400"
+                            />
+
                             <Newspaper class="h-3.5 w-3.5" />
+
                             Berita & Informasi
                         </div>
 
                         <h1
-                            class="text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl"
+                            class="text-4xl font-black leading-[1.02] tracking-[-0.04em] sm:text-5xl lg:text-6xl"
                         >
                             Berita &
-                            <span class="text-blue-600">
+                            <span class="text-cyan-300">
                                 kegiatan.
                             </span>
                         </h1>
 
                         <p
-                            class="mt-6 max-w-2xl text-base leading-7 text-slate-500 sm:text-lg"
+                            class="mt-7 max-w-2xl text-base leading-8 text-slate-400 sm:text-lg"
                         >
                             Dapatkan informasi terbaru mengenai kegiatan,
-                            program, perkembangan, dan aktivitas organisasi dari
-                            berbagai tingkatan kepengurusan.
+                            program, perkembangan, dan aktivitas organisasi
+                            dari berbagai tingkatan kepengurusan.
                         </p>
                     </div>
                 </div>
             </section>
 
-            <!-- Content -->
-            <section class="border-t border-slate-100 bg-slate-50/70">
+            <!-- ===================================================== -->
+            <!-- NEWS CONTENT -->
+            <!-- ===================================================== -->
+            <section
+                class="relative overflow-hidden bg-slate-50 py-16 sm:py-20"
+            >
                 <div
-                    class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+                    class="pointer-events-none absolute -right-48 top-0 h-[34rem] w-[34rem] rounded-full bg-blue-200/40 blur-3xl"
+                />
+
+                <div
+                    class="pointer-events-none absolute -left-40 bottom-[-10rem] h-[30rem] w-[30rem] rounded-full bg-violet-200/30 blur-3xl"
+                />
+
+                <div
+                    class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
                 >
                     <!-- Search & Filter -->
                     <div
-                        class="mb-10 flex flex-col gap-4 transition-all duration-700 ease-out lg:flex-row lg:items-center lg:justify-between"
-                        :class="
-                            pageReady
-                                ? 'translate-y-0 opacity-100'
-                                : 'translate-y-8 opacity-0'
-                        "
+                        class="mb-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
                     >
                         <div class="relative w-full lg:max-w-md">
                             <Search
@@ -406,10 +504,10 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                         </div>
                     </div>
 
-                    <!-- Empty State -->
+                    <!-- Empty -->
                     <div
                         v-if="!filteredNews.length"
-                        class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center"
+                        class="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center shadow-sm"
                     >
                         <div
                             class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"
@@ -432,20 +530,17 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                     </div>
 
                     <template v-else>
-                        <!-- Featured News -->
+                        <!-- Featured -->
                         <article
                             v-if="featuredNews"
-                            class="group relative mb-10 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-700 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60"
-                            :class="
-                                pageReady
-                                    ? 'translate-y-0 opacity-100'
-                                    : 'translate-y-8 opacity-0'
-                            "
-                            style="transition-delay: 100ms"
+                            class="group relative mb-10 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition duration-500 hover:-translate-y-1 hover:shadow-2xl"
                         >
-                            <div class="grid min-h-[420px] lg:grid-cols-2">
+                            <div
+                                class="grid min-h-[430px] lg:grid-cols-2"
+                            >
+                                <!-- Image -->
                                 <div
-                                    class="relative min-h-[280px] overflow-hidden bg-slate-100 lg:min-h-full"
+                                    class="relative min-h-[280px] overflow-hidden bg-slate-950 lg:min-h-full"
                                 >
                                     <img
                                         v-if="featuredNews.image"
@@ -456,27 +551,28 @@ const otherNews = computed(() => filteredNews.value.slice(1));
 
                                     <div
                                         v-else
-                                        class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-cyan-700"
+                                        class="absolute inset-0 flex items-center justify-center overflow-hidden bg-slate-950"
                                     >
-                                        <Newspaper
-                                            class="h-20 w-20 text-white/20"
+                                        <div
+                                            class="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl"
                                         />
 
                                         <div
-                                            class="absolute inset-0 opacity-20"
+                                            class="absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-violet-500/20 blur-3xl"
+                                        />
+
+                                        <div
+                                            class="absolute inset-0 opacity-[0.12]"
                                             style="
                                                 background-image:
-                                                    linear-gradient(
-                                                        rgba(255, 255, 255, 0.16) 1px,
-                                                        transparent 1px
-                                                    ),
-                                                    linear-gradient(
-                                                        90deg,
-                                                        rgba(255, 255, 255, 0.16) 1px,
-                                                        transparent 1px
-                                                    );
+                                                    linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px),
+                                                    linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px);
                                                 background-size: 32px 32px;
                                             "
+                                        />
+
+                                        <Newspaper
+                                            class="relative h-20 w-20 text-white/20"
                                         />
                                     </div>
 
@@ -487,6 +583,7 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                     </div>
                                 </div>
 
+                                <!-- Content -->
                                 <div
                                     class="flex flex-col justify-center p-7 sm:p-10 lg:p-12"
                                 >
@@ -547,47 +644,44 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                             <article
                                 v-for="(item, index) in otherNews"
                                 :key="item.id"
-                                class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-700 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50"
-                                :class="
-                                    pageReady
-                                        ? 'translate-y-0 opacity-100'
-                                        : 'translate-y-8 opacity-0'
-                                "
+                                class="group flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-xl"
                                 :style="{
-                                    transitionDelay: `${180 + index * 100}ms`,
+                                    transitionDelay: `${index * 70}ms`,
                                 }"
                             >
+                                <!-- Image -->
                                 <div
-                                    class="relative aspect-[16/9] overflow-hidden bg-slate-100"
+                                    class="relative aspect-[16/9] overflow-hidden bg-slate-950"
                                 >
                                     <img
                                         v-if="item.image"
                                         :src="item.image"
                                         :alt="item.title"
-                                        class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                        class="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                                     />
 
                                     <div
                                         v-else
-                                        class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-700"
+                                        class="absolute inset-0 flex items-center justify-center overflow-hidden"
                                     >
-                                        <Newspaper
-                                            class="h-12 w-12 text-white/20"
+                                        <div
+                                            class="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl"
                                         />
 
                                         <div
-                                            class="absolute inset-0 opacity-20"
+                                            class="absolute -bottom-20 -right-10 h-52 w-52 rounded-full bg-violet-500/20 blur-3xl"
+                                        />
+
+                                        <Newspaper
+                                            class="relative h-12 w-12 text-white/20"
+                                        />
+
+                                        <div
+                                            class="absolute inset-0 opacity-[0.1]"
                                             style="
                                                 background-image:
-                                                    linear-gradient(
-                                                        rgba(255, 255, 255, 0.16) 1px,
-                                                        transparent 1px
-                                                    ),
-                                                    linear-gradient(
-                                                        90deg,
-                                                        rgba(255, 255, 255, 0.16) 1px,
-                                                        transparent 1px
-                                                    );
+                                                    linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px),
+                                                    linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px);
                                                 background-size: 28px 28px;
                                             "
                                         />
@@ -600,11 +694,16 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                                     </div>
                                 </div>
 
-                                <div class="flex flex-1 flex-col p-6">
+                                <!-- Card Content -->
+                                <div
+                                    class="flex flex-1 flex-col p-6"
+                                >
                                     <div
                                         class="flex items-center gap-2 text-xs font-semibold text-slate-400"
                                     >
-                                        <CalendarDays class="h-3.5 w-3.5" />
+                                        <CalendarDays
+                                            class="h-3.5 w-3.5"
+                                        />
 
                                         {{ item.date }}
                                     </div>
@@ -639,125 +738,283 @@ const otherNews = computed(() => filteredNews.value.slice(1));
                 </div>
             </section>
 
+            <!-- ===================================================== -->
             <!-- CTA -->
-            <section class="relative overflow-hidden bg-slate-950">
+            <!-- ===================================================== -->
+            <section
+                class="relative overflow-hidden bg-white py-24 sm:py-32"
+            >
                 <div
-                    class="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full bg-blue-600/30 blur-3xl"
+                    class="pointer-events-none absolute left-[-12rem] top-[-8rem] h-[32rem] w-[32rem] rounded-full bg-cyan-100/60 blur-3xl"
                 />
 
                 <div
-                    class="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-cyan-500/20 blur-3xl"
+                    class="pointer-events-none absolute bottom-[-10rem] right-[-12rem] h-[34rem] w-[34rem] rounded-full bg-violet-100/60 blur-3xl"
                 />
 
                 <div
-                    class="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8"
+                    class="relative mx-auto max-w-5xl px-5 text-center sm:px-6 lg:px-8"
                 >
                     <div
-                        class="flex flex-col items-start justify-between gap-8 transition-all duration-700 ease-out md:flex-row md:items-center"
-                        :class="
-                            pageReady
-                                ? 'translate-y-0 opacity-100'
-                                : 'translate-y-8 opacity-0'
-                        "
+                        class="rounded-[2.5rem] border border-slate-200 bg-slate-950 px-7 py-14 text-white shadow-2xl sm:px-12 sm:py-16"
                     >
-                        <div class="max-w-2xl">
-                            <div
-                                class="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-blue-400"
-                            >
-                                Organisasi Terintegrasi
-                            </div>
+                        <Network
+                            class="mx-auto h-9 w-9 text-cyan-300"
+                        />
 
-                            <h2
-                                class="text-3xl font-extrabold tracking-[-0.03em] text-white sm:text-4xl"
-                            >
-                                Bangun organisasi yang lebih terstruktur.
-                            </h2>
-
-                            <p
-                                class="mt-4 text-sm leading-7 text-slate-400 sm:text-base"
-                            >
-                                Kelola struktur, kepengurusan, anggota, dan
-                                aktivitas organisasi dalam satu sistem
-                                terintegrasi.
-                            </p>
-                        </div>
-
-                        <Link
-                            href="/login"
-                            class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-extrabold text-slate-950 transition duration-300 hover:-translate-y-0.5 hover:bg-blue-50"
+                        <h2
+                            class="mx-auto mt-7 max-w-3xl text-4xl font-black tracking-tight sm:text-5xl"
                         >
-                            Masuk ke sistem
-                            <ArrowUpRight class="h-4 w-4" />
-                        </Link>
+                            Tetap terhubung dengan aktivitas organisasi.
+                        </h2>
+
+                        <p
+                            class="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-400"
+                        >
+                            Jelajahi struktur organisasi, kegiatan, dan
+                            informasi terbaru melalui Organization Management
+                            System.
+                        </p>
+
+                        <div class="mt-9">
+                            <Link
+                                href="/"
+                                class="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-slate-200"
+                            >
+                                Kembali ke Beranda
+
+                                <ArrowRight class="h-4 w-4" />
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>
         </main>
 
-        <!-- Footer -->
-        <footer class="border-t border-slate-800 bg-slate-950">
+        <!-- ========================================================= -->
+        <!-- FOOTER - SAME AS WELCOME -->
+        <!-- ========================================================= -->
+        <footer
+            class="border-t border-slate-200 bg-slate-950 text-white"
+        >
             <div
-                class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8"
+                class="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8"
             >
-                <div>
-                    <div class="flex items-center gap-3">
-                        <div
-                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-950"
-                        >
-                            <Network class="h-4 w-4" />
+                <div
+                    class="grid gap-12 md:grid-cols-[1.4fr_.6fr_.6fr]"
+                >
+                    <!-- Brand -->
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950"
+                            >
+                                OM
+                            </div>
+
+                            <div>
+                                <div
+                                    class="text-[11px] font-bold tracking-[0.25em]"
+                                >
+                                    ORGANIZATION
+                                </div>
+
+                                <div
+                                    class="text-[9px] tracking-[0.2em] text-slate-500"
+                                >
+                                    MANAGEMENT SYSTEM
+                                </div>
+                            </div>
                         </div>
 
-                        <div>
-                            <div
-                                class="text-sm font-extrabold text-white"
-                            >
-                                ORGANISASI
-                            </div>
+                        <p
+                            class="mt-6 max-w-md text-sm leading-7 text-slate-500"
+                        >
+                            Sistem manajemen organisasi multi-cabang yang
+                            membantu mengelola struktur, kepengurusan,
+                            anggota, kegiatan, dan informasi organisasi secara
+                            terintegrasi.
+                        </p>
+                    </div>
 
-                            <div
-                                class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500"
+                    <!-- Navigasi -->
+                    <div>
+                        <h3
+                            class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400"
+                        >
+                            Navigasi
+                        </h3>
+
+                        <div class="mt-5 space-y-3">
+                            <Link
+                                href="/"
+                                class="block text-sm text-slate-500 transition hover:text-white"
                             >
-                                Management System
-                            </div>
+                                Beranda
+                            </Link>
+
+                            <Link
+                                href="/#profil"
+                                class="block text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Profil
+                            </Link>
+
+                            <Link
+                                href="/#struktur"
+                                class="block text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Struktur
+                            </Link>
+
+                            <Link
+                                href="/#ranting"
+                                class="block text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Ranting & Unit
+                            </Link>
+
+                            <Link
+                                href="/#kegiatan"
+                                class="block text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Kegiatan
+                            </Link>
+
+                            <Link
+                                href="/berita"
+                                class="block text-sm font-semibold text-white"
+                            >
+                                Berita
+                            </Link>
                         </div>
                     </div>
 
-                    <p class="mt-4 text-xs text-slate-500">
-                        Sistem manajemen organisasi multi-cabang.
-                    </p>
+                    <!-- Quick Access -->
+                    <div>
+                        <h3
+                            class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400"
+                        >
+                            Akses
+                        </h3>
+
+                        <div class="mt-5 space-y-3">
+                            <Link
+                                href="/login"
+                                class="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Masuk ke Sistem
+
+                                <ArrowUpRight
+                                    class="h-3.5 w-3.5"
+                                />
+                            </Link>
+
+                            <Link
+                                href="/berita"
+                                class="block text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Semua Berita
+                            </Link>
+                        </div>
+                    </div>
                 </div>
 
+                <!-- Copyright -->
                 <div
-                    class="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs font-semibold text-slate-500"
+                    class="mt-14 flex flex-col gap-4 border-t border-white/10 pt-7 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between"
                 >
-                    <Link
-                        href="/"
-                        class="transition hover:text-white"
-                    >
-                        Beranda
-                    </Link>
+                    <p>
+                        © {{ new Date().getFullYear() }} Organization
+                        Management System. All rights reserved.
+                    </p>
 
-                    <Link
-                        href="/berita"
-                        class="transition hover:text-white"
-                    >
-                        Berita
-                    </Link>
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="h-2 w-2 rounded-full bg-emerald-400"
+                        />
 
-                    <Link
-                        href="/login"
-                        class="transition hover:text-white"
-                    >
-                        Login
-                    </Link>
+                        System Operational
+                    </div>
                 </div>
-            </div>
-
-            <div
-                class="border-t border-white/5 px-4 py-5 text-center text-xs text-slate-600"
-            >
-                © 2026 Organization Management System. All rights reserved.
             </div>
         </footer>
+
+        <!-- Back To Top -->
+        <Transition
+            enter-active-class="transition duration-300"
+            enter-from-class="opacity-0 translate-y-3"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-200"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 translate-y-3"
+        >
+            <button
+                v-if="showBackToTop"
+                type="button"
+                class="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white shadow-xl transition hover:-translate-y-1 hover:bg-slate-800"
+                aria-label="Kembali ke atas"
+                @click="scrollToTop"
+            >
+                <ArrowUp class="h-5 w-5" />
+            </button>
+        </Transition>
     </div>
 </template>
+
+<style scoped>
+html {
+    scroll-behavior: smooth;
+}
+
+.page-loading,
+.page-loaded {
+    opacity: 1;
+}
+
+.page-loaded {
+    transition: opacity 700ms ease;
+}
+
+.blob {
+    animation: blobFloat 14s ease-in-out infinite;
+}
+
+.blob-one {
+    animation-delay: 0s;
+}
+
+.blob-two {
+    animation-delay: -4s;
+}
+
+.blob-three {
+    animation-delay: -8s;
+}
+
+@keyframes blobFloat {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate3d(25px, -20px, 0) scale(1.04);
+    }
+
+    66% {
+        transform: translate3d(-20px, 25px, 0) scale(0.97);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-loading,
+    .page-loaded,
+    .blob {
+        opacity: 1;
+        transform: none;
+        animation: none;
+        transition: none;
+    }
+}
+</style>

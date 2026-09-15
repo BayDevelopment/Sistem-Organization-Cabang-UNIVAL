@@ -4,24 +4,50 @@ import {
     ArrowRight,
     ArrowUp,
     ArrowUpRight,
+    Award,
     Building2,
     CalendarDays,
     ChevronRight,
-    Globe2,
+    Landmark,
+    Mail,
     MapPin,
     Menu,
     Network,
     Newspaper,
+    Phone,
     ShieldCheck,
     Users,
     X,
 } from 'lucide-vue-next';
 import {
-    ComponentPublicInstance,
+    nextTick,
     onBeforeUnmount,
     onMounted,
     ref,
+    type ComponentPublicInstance,
 } from 'vue';
+
+/*
+|--------------------------------------------------------------------------
+| Types
+|--------------------------------------------------------------------------
+*/
+interface StatItem {
+    value: string;
+    label: string;
+}
+
+interface PengurusItem {
+    name: string;
+    position: string;
+    division: string;
+}
+
+interface SubOrgItem {
+    name: string;
+    type: string;
+    members: number;
+}
 
 interface NewsItem {
     id: number;
@@ -32,1034 +58,859 @@ interface NewsItem {
     image?: string | null;
 }
 
+interface Organisasi {
+    name: string;
+    parent: string;
+    region: string;
+    established: string;
+    status: string;
+    address: string;
+    phone: string;
+    email: string;
+    description: string;
+    stats: StatItem[];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Props
+|--------------------------------------------------------------------------
+*/
 const props = withDefaults(
     defineProps<{
+        organisasi?: Organisasi;
+        pengurus?: PengurusItem[];
+        subOrganisasi?: SubOrgItem[];
         news?: NewsItem[];
     }>(),
     {
+        organisasi: undefined,
+        pengurus: () => [],
+        subOrganisasi: () => [],
         news: () => [],
     },
 );
 
-const mobileMenuOpen = ref(false);
-const showBackToTop = ref(false);
-const pageLoaded = ref(false);
-
-const revealedSections = ref<HTMLElement[]>([]);
-
-const handleScroll = () => {
-    showBackToTop.value = window.scrollY > 500;
+/*
+|--------------------------------------------------------------------------
+| Dummy data (dipakai sebelum data cabang terhubung ke database)
+|--------------------------------------------------------------------------
+*/
+const dummyOrganisasi: Organisasi = {
+    name: 'Pengurus Cabang Jakarta Selatan',
+    parent: 'Pengurus Wilayah DKI Jakarta',
+    region: 'DKI Jakarta',
+    established: '2010',
+    status: 'Aktif',
+    address: 'Jl. Melati Raya No. 45, Kebayoran Baru, Jakarta Selatan',
+    phone: '(021) 555-0192',
+    email: 'cabang.jaksel@organisasi.or.id',
+    description:
+        'Pengurus Cabang Jakarta Selatan membawahi seluruh ranting dan unit di wilayah kerja Jakarta Selatan. Cabang ini berperan menjalankan program kerja wilayah, membina ranting, serta menjadi penghubung antara anggota di tingkat akar rumput dengan pengurus wilayah dan pusat.',
+    stats: [
+        { value: '328', label: 'Anggota Aktif' },
+        { value: '12', label: 'Ranting' },
+        { value: '34', label: 'Unit' },
+        { value: '56', label: 'Kegiatan Tahun Ini' },
+    ],
 };
 
-const scrollToTop = () => {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-    });
-};
-
-let revealObserver: IntersectionObserver | null = null;
-
-onMounted(() => {
-    requestAnimationFrame(() => {
-        pageLoaded.value = true;
-    });
-
-    window.addEventListener('scroll', handleScroll, {
-        passive: true,
-    });
-
-    handleScroll();
-
-    revealObserver = new IntersectionObserver(
-        (entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('is-visible');
-                    revealObserver?.unobserve(entry.target);
-                }
-            });
-        },
-        {
-            threshold: 0.12,
-            rootMargin: '0px 0px -60px 0px',
-        },
-    );
-
-    revealedSections.value.forEach((element) => {
-        revealObserver?.observe(element);
-    });
-});
-
-onBeforeUnmount(() => {
-    window.removeEventListener('scroll', handleScroll);
-
-    revealObserver?.disconnect();
-    revealObserver = null;
-});
-
-const setRevealRef = (element: Element | ComponentPublicInstance | null) => {
-    if (element instanceof HTMLElement && !revealedSections.value.includes(element)) {
-        revealedSections.value.push(element);
-
-        if (revealObserver) {
-            revealObserver.observe(element);
-        }
-    }
-};
-
-const stats = [
+const dummyPengurus: PengurusItem[] = [
+    { name: 'Ahmad Fauzan', position: 'Ketua Cabang', division: 'Pimpinan' },
     {
-        value: '1,284',
-        label: 'Anggota Aktif',
-        icon: Users,
+        name: 'Siti Rahmawati',
+        position: 'Wakil Ketua Cabang',
+        division: 'Pimpinan',
     },
     {
-        value: '42',
-        label: 'Organisasi Cabang',
-        icon: Building2,
+        name: 'Budi Santoso',
+        position: 'Sekretaris Cabang',
+        division: 'Kesekretariatan',
     },
     {
-        value: '8',
-        label: 'Wilayah',
-        icon: MapPin,
+        name: 'Dewi Anggraini',
+        position: 'Bendahara Cabang',
+        division: 'Keuangan',
     },
     {
-        value: '156',
-        label: 'Kegiatan',
-        icon: CalendarDays,
+        name: 'Rizal Hakim',
+        position: 'Kepala Bidang Organisasi',
+        division: 'Organisasi',
+    },
+    {
+        name: 'Maya Puspita',
+        position: 'Kepala Bidang Humas',
+        division: 'Hubungan Masyarakat',
     },
 ];
 
-const features = [
-    {
-        number: '01',
-        title: 'Struktur Organisasi',
-        description:
-            'Kelola struktur organisasi bertingkat dari pusat hingga cabang secara terpusat dan terstruktur.',
-        icon: Network,
-    },
-    {
-        number: '02',
-        title: 'Manajemen Anggota',
-        description:
-            'Kelola data anggota, status keanggotaan, riwayat, hingga kartu anggota digital.',
-        icon: Users,
-    },
-    {
-        number: '03',
-        title: 'Kegiatan Organisasi',
-        description:
-            'Rencanakan kegiatan, kelola peserta, absensi, dokumentasi, dan laporan kegiatan.',
-        icon: CalendarDays,
-    },
-    {
-        number: '04',
-        title: 'Laporan Terpusat',
-        description:
-            'Pantau perkembangan organisasi dan aktivitas cabang melalui laporan yang terintegrasi.',
-        icon: Newspaper,
-    },
+const dummySubOrganisasi: SubOrgItem[] = [
+    { name: 'Ranting Kebayoran Baru', type: 'Ranting', members: 48 },
+    { name: 'Ranting Cilandak', type: 'Ranting', members: 36 },
+    { name: 'Ranting Pasar Minggu', type: 'Ranting', members: 41 },
+    { name: 'Ranting Tebet', type: 'Ranting', members: 29 },
+    { name: 'Unit Pendidikan', type: 'Unit', members: 22 },
+    { name: 'Unit Sosial & Kemanusiaan', type: 'Unit', members: 18 },
 ];
 
 const dummyNews: NewsItem[] = [
     {
         id: 1,
-        title: 'Pengurus Pusat Gelar Rapat Koordinasi Nasional',
+        title: 'Pelantikan Pengurus Ranting Se-Jakarta Selatan',
         excerpt:
-            'Koordinasi nasional menjadi momentum memperkuat sinergi antarwilayah dan cabang dalam menjalankan program organisasi.',
-        category: 'Organisasi',
-        date: '12 September 2026',
+            'Pengurus cabang melantik jajaran pengurus ranting baru periode 2026–2029 sebagai penguatan struktur di tingkat akar rumput.',
+        category: 'Kegiatan',
+        date: '10 September 2026',
         image: null,
     },
     {
         id: 2,
-        title: 'Program Pengembangan Anggota Resmi Dimulai',
+        title: 'Rapat Kerja Cabang Susun Program Tahunan',
         excerpt:
-            'Program pengembangan anggota dilaksanakan secara bertahap di seluruh wilayah untuk meningkatkan kapasitas dan kualitas anggota.',
-        category: 'Kegiatan',
-        date: '08 September 2026',
+            'Rapat kerja cabang membahas evaluasi program tahun berjalan dan menyusun agenda kegiatan untuk tahun mendatang.',
+        category: 'Organisasi',
+        date: '2 September 2026',
         image: null,
     },
     {
         id: 3,
-        title: 'Digitalisasi Administrasi Organisasi',
+        title: 'Bakti Sosial di Wilayah Kebayoran Baru',
         excerpt:
-            'Transformasi digital membantu pengurus mengelola administrasi organisasi dengan lebih efisien dan terintegrasi.',
-        category: 'Informasi',
-        date: '03 September 2026',
-        image: null,
-    },
-    {
-        id: 4,
-        title: 'Pengurus Wilayah Menyusun Program Kerja Tahunan',
-        excerpt:
-            'Penyusunan program kerja menjadi bagian penting dalam memastikan arah organisasi tetap terukur dan terarah.',
-        category: 'Organisasi',
-        date: '28 Agustus 2026',
-        image: null,
-    },
-    {
-        id: 5,
-        title: 'Pelatihan Kepemimpinan Bagi Pengurus Cabang',
-        excerpt:
-            'Kegiatan pelatihan kepemimpinan dilaksanakan untuk memperkuat kemampuan pengurus dalam mengelola organisasi.',
-        category: 'Kegiatan',
-        date: '24 Agustus 2026',
-        image: null,
-    },
-    {
-        id: 6,
-        title: 'Sistem Manajemen Organisasi Mulai Diterapkan',
-        excerpt:
-            'Implementasi sistem digital menjadi langkah awal menuju pengelolaan organisasi yang lebih modern dan terintegrasi.',
-        category: 'Informasi',
-        date: '20 Agustus 2026',
+            'Unit Sosial bersama ranting setempat menggelar kegiatan bakti sosial untuk warga terdampak di wilayah kerja cabang.',
+        category: 'Sosial',
+        date: '25 Agustus 2026',
         image: null,
     },
 ];
 
-const displayedNews = props.news.length
-    ? props.news
-    : dummyNews;
+const org = props.organisasi ?? dummyOrganisasi;
+const displayedPengurus = props.pengurus.length
+    ? props.pengurus
+    : dummyPengurus;
+const displayedSubOrg = props.subOrganisasi.length
+    ? props.subOrganisasi
+    : dummySubOrganisasi;
+const displayedNews = props.news.length ? props.news : dummyNews;
+
+/*
+|--------------------------------------------------------------------------
+| UI state
+|--------------------------------------------------------------------------
+*/
+const mobileMenuOpen = ref(false);
+const showBackToTop = ref(false);
+const pageLoaded = ref(false);
+const revealObserver = ref<IntersectionObserver | null>(null);
+const revealElements = new Set<HTMLElement>();
+
+function handleScroll() {
+    showBackToTop.value = window.scrollY > 500;
+}
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setRevealRef(
+    element: Element | ComponentPublicInstance | null,
+) {
+    if (!(element instanceof HTMLElement)) {
+        return;
+    }
+
+    revealElements.add(element);
+
+    if (!element.classList.contains('reveal-ready')) {
+        element.classList.add('reveal-ready');
+    }
+
+    if (revealObserver.value) {
+        revealObserver.value.observe(element);
+    }
+}
+
+function revealAllSections() {
+    revealElements.forEach((element) => element.classList.add('is-visible'));
+}
+
+function revealVisibleSections() {
+    revealElements.forEach((element) => {
+        const rect = element.getBoundingClientRect();
+
+        if (rect.top < window.innerHeight * 0.92 && rect.bottom > 0) {
+            element.classList.add('is-visible');
+        }
+    });
+}
+
+onMounted(async () => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    await nextTick();
+
+    requestAnimationFrame(() => {
+        pageLoaded.value = true;
+    });
+
+    const reducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+    ).matches;
+
+    if (reducedMotion || !('IntersectionObserver' in window)) {
+        revealAllSections();
+        return;
+    }
+
+    revealObserver.value = new IntersectionObserver(
+        (entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    revealObserver.value?.unobserve(entry.target);
+                }
+            });
+        },
+        { threshold: 0.05, rootMargin: '0px 0px -50px 0px' },
+    );
+
+    revealElements.forEach((element) => revealObserver.value?.observe(element));
+
+    requestAnimationFrame(() => revealVisibleSections());
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('scroll', handleScroll);
+    revealObserver.value?.disconnect();
+    revealElements.clear();
+});
 </script>
 
 <template>
-    <Head title="Organization Management System" />
+    <Head :title="org.name" />
 
     <div
         class="min-h-screen overflow-x-hidden bg-white font-sans text-slate-950"
         :class="pageLoaded ? 'page-loaded' : 'page-loading'"
     >
-        <!-- =========================================================
-        Navigation
-        ========================================================== -->
+        <!-- Header -->
         <header
-            class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-slate-950/80 text-white shadow-lg shadow-slate-950/5 backdrop-blur-xl transition-all duration-300"
+            class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl"
         >
             <div
-                class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8"
+                class="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8"
             >
-                <Link
-                    href="/"
-                    class="flex items-center gap-3"
-                >
+                <Link href="/" class="group flex items-center gap-3">
                     <div
-                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-950 shadow-lg"
+                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950 transition-transform duration-300 group-hover:rotate-3"
                     >
-                        <Network class="h-5 w-5" />
+                        OM
                     </div>
-
-                    <div>
-                        <div class="text-sm font-bold tracking-wide">
+                    <div class="hidden sm:block">
+                        <div class="text-[11px] font-bold tracking-[0.28em] text-white">
                             ORGANIZATION
                         </div>
-
-                        <div
-                            class="text-[10px] font-medium uppercase tracking-[0.25em] text-white/60"
-                        >
-                            Management System
+                        <div class="text-[9px] font-medium tracking-[0.22em] text-slate-400">
+                            MANAGEMENT SYSTEM
                         </div>
                     </div>
                 </Link>
 
-                <nav class="hidden items-center gap-8 md:flex">
-                    <a
-                        href="#tentang"
-                        class="text-sm text-white/75 transition-colors duration-300 hover:text-white"
-                    >
-                        Tentang
+                <nav class="hidden items-center gap-8 lg:flex">
+                    <Link href="/" class="text-sm font-medium text-slate-300 transition hover:text-white">
+                        Beranda
+                    </Link>
+                    <a href="#profil" class="text-sm font-medium text-slate-300 transition hover:text-white">
+                        Profil
                     </a>
-
-                    <a
-                        href="#fitur"
-                        class="text-sm text-white/75 transition-colors duration-300 hover:text-white"
-                    >
-                        Fitur
+                    <a href="#struktur" class="text-sm font-medium text-slate-300 transition hover:text-white">
+                        Struktur
                     </a>
-
-                    <a
-                        href="#kegiatan"
-                        class="text-sm text-white/75 transition-colors duration-300 hover:text-white"
-                    >
+                    <a href="#ranting" class="text-sm font-medium text-slate-300 transition hover:text-white">
+                        Ranting & Unit
+                    </a>
+                    <a href="#kegiatan" class="text-sm font-medium text-slate-300 transition hover:text-white">
                         Kegiatan
                     </a>
-
-                    <Link
-                        href="/berita"
-                        class="text-sm text-white/75 transition-colors duration-300 hover:text-white"
-                    >
+                    <Link href="/berita" class="text-sm font-medium text-slate-300 transition hover:text-white">
                         Berita
                     </Link>
                 </nav>
 
-                <div class="hidden md:block">
+                <div class="hidden items-center gap-3 lg:flex">
                     <Link
                         href="/login"
-                        class="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-100 hover:shadow-lg"
+                        class="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
                     >
-                        Masuk Sistem
-                        <ArrowUpRight class="h-4 w-4" />
+                        Masuk
                     </Link>
                 </div>
 
                 <button
                     type="button"
-                    aria-label="Toggle navigation"
-                    class="rounded-lg border border-white/15 p-2 transition-all duration-300 hover:bg-white/10 md:hidden"
+                    class="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 text-white lg:hidden"
+                    aria-label="Toggle menu"
                     @click="mobileMenuOpen = !mobileMenuOpen"
                 >
-                    <Transition
-                        mode="out-in"
-                        enter-active-class="transition duration-200"
-                        enter-from-class="scale-75 rotate-90 opacity-0"
-                        enter-to-class="scale-100 rotate-0 opacity-100"
-                        leave-active-class="transition duration-150"
-                        leave-from-class="scale-100 rotate-0 opacity-100"
-                        leave-to-class="scale-75 -rotate-90 opacity-0"
-                    >
-                        <X
-                            v-if="mobileMenuOpen"
-                            key="close"
-                            class="h-5 w-5"
-                        />
-
-                        <Menu
-                            v-else
-                            key="menu"
-                            class="h-5 w-5"
-                        />
-                    </Transition>
+                    <X v-if="mobileMenuOpen" class="h-5 w-5" />
+                    <Menu v-else class="h-5 w-5" />
                 </button>
             </div>
 
             <Transition
-                enter-active-class="transition-all duration-300 ease-out"
-                enter-from-class="-translate-y-3 opacity-0"
-                enter-to-class="translate-y-0 opacity-100"
-                leave-active-class="transition-all duration-200 ease-in"
-                leave-from-class="translate-y-0 opacity-100"
-                leave-to-class="-translate-y-3 opacity-0"
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0 -translate-y-2"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-2"
             >
-                <div
-                    v-if="mobileMenuOpen"
-                    class="border-t border-white/10 bg-slate-950/95 px-6 py-5 backdrop-blur-xl md:hidden"
-                >
-                    <nav class="flex flex-col gap-4">
-                        <a
-                            href="#tentang"
-                            class="text-white/80 transition-colors duration-300 hover:text-white"
-                            @click="mobileMenuOpen = false"
-                        >
-                            Tentang
+                <div v-if="mobileMenuOpen" class="border-t border-white/10 bg-slate-950 px-5 py-5 lg:hidden">
+                    <nav class="flex flex-col gap-2">
+                        <Link href="/" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white" @click="mobileMenuOpen = false">
+                            Beranda
+                        </Link>
+                        <a href="#profil" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white" @click="mobileMenuOpen = false">
+                            Profil
                         </a>
-
-                        <a
-                            href="#fitur"
-                            class="text-white/80 transition-colors duration-300 hover:text-white"
-                            @click="mobileMenuOpen = false"
-                        >
-                            Fitur
+                        <a href="#struktur" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white" @click="mobileMenuOpen = false">
+                            Struktur
                         </a>
-
-                        <a
-                            href="#kegiatan"
-                            class="text-white/80 transition-colors duration-300 hover:text-white"
-                            @click="mobileMenuOpen = false"
-                        >
+                        <a href="#ranting" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white" @click="mobileMenuOpen = false">
+                            Ranting & Unit
+                        </a>
+                        <a href="#kegiatan" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white" @click="mobileMenuOpen = false">
                             Kegiatan
                         </a>
-
-                        <Link
-                            href="/berita"
-                            class="text-white/80 transition-colors duration-300 hover:text-white"
-                            @click="mobileMenuOpen = false"
-                        >
+                        <Link href="/berita" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white" @click="mobileMenuOpen = false">
                             Berita
                         </Link>
-
-                        <Link
-                            href="/login"
-                            class="mt-2 rounded-xl bg-white px-4 py-3 text-center font-semibold text-slate-950 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-100"
-                        >
-                            Masuk Sistem
+                        <Link href="/login" class="mt-3 rounded-xl bg-white px-4 py-3 text-center text-sm font-bold text-slate-950" @click="mobileMenuOpen = false">
+                            Masuk ke Sistem
                         </Link>
                     </nav>
                 </div>
             </Transition>
         </header>
 
-        <!-- =========================================================
-        Hero
-        ========================================================== -->
-        <section
-            class="relative isolate min-h-[760px] overflow-hidden bg-slate-950"
-        >
-            <div
-                class="absolute inset-0 opacity-[0.08]"
-                style="
-                    background-image:
-                        linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px);
-                    background-size: 64px 64px;
-                "
-            />
-
-            <div
-                class="absolute -right-40 -top-40 h-[600px] w-[600px] rounded-full bg-cyan-500/20 blur-3xl"
-            />
-
-            <div
-                class="absolute -bottom-60 -left-40 h-[600px] w-[600px] rounded-full bg-blue-600/20 blur-3xl"
-            />
-
-            <div
-                class="relative mx-auto flex min-h-[760px] max-w-7xl items-center px-6 pb-20 pt-32 lg:px-8"
-            >
-                <div class="max-w-4xl">
-                    <div
-                        class="hero-reveal hero-delay-1 mb-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm text-white/70 backdrop-blur"
-                    >
-                        <span class="h-2 w-2 rounded-full bg-cyan-400" />
-                        Platform Digital Organisasi Terintegrasi
-                    </div>
-
-                    <h1
-                        class="hero-reveal hero-delay-2 max-w-5xl text-5xl font-bold leading-[1.02] tracking-tight text-white sm:text-6xl lg:text-8xl"
-                    >
-                        Menghubungkan
-
-                        <span
-                            class="bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400 bg-clip-text text-transparent"
-                        >
-                            seluruh organisasi.
-                        </span>
-                    </h1>
-
-                    <p
-                        class="hero-reveal hero-delay-3 mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg"
-                    >
-                        Satu platform untuk mengelola organisasi pusat hingga
-                        cabang, anggota, pengurus, kegiatan, dokumen, surat,
-                        dan laporan secara terstruktur.
-                    </p>
-
-                    <div
-                        class="hero-reveal hero-delay-4 mt-9 flex flex-col gap-3 sm:flex-row"
-                    >
-                        <Link
-                            href="/login"
-                            class="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-950 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-slate-100 hover:shadow-xl hover:shadow-white/10"
-                        >
-                            Mulai Kelola Organisasi
-
-                            <ArrowRight
-                                class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
-                            />
-                        </Link>
-
-                        <a
-                            href="#tentang"
-                            class="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10"
-                        >
-                            Pelajari Lebih Lanjut
-                        </a>
-                    </div>
-
-                    <div
-                        class="hero-reveal hero-delay-5 mt-12 flex flex-wrap items-center gap-x-8 gap-y-4 text-sm text-white/50"
-                    >
-                        <div class="flex items-center gap-2">
-                            <ShieldCheck class="h-4 w-4 text-cyan-400" />
-                            Akses berbasis role
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <Globe2 class="h-4 w-4 text-cyan-400" />
-                            Multi-cabang
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <Network class="h-4 w-4 text-cyan-400" />
-                            Hierarki terstruktur
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-        Stats
-        ========================================================== -->
-        <section
-            ref="setRevealRef"
-            class="reveal-on-scroll relative z-10 -mt-12 px-6 lg:px-8"
-        >
-            <div
-                class="mx-auto grid max-w-7xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 sm:grid-cols-2 lg:grid-cols-4"
-            >
-                <div
-                    v-for="(stat, index) in stats"
-                    :key="stat.label"
-                    class="border-b border-slate-100 p-7 last:border-b-0 transition-colors duration-300 hover:bg-slate-50 sm:border-r sm:last:border-r-0 lg:border-b-0"
-                    :style="{ transitionDelay: `${index * 80}ms` }"
-                >
-                    <component
-                        :is="stat.icon"
-                        class="mb-6 h-5 w-5 text-blue-600"
-                    />
-
-                    <div
-                        class="text-3xl font-bold tracking-tight text-slate-950"
-                    >
-                        {{ stat.value }}
-                    </div>
-
-                    <div class="mt-1 text-sm text-slate-500">
-                        {{ stat.label }}
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-        About
-        ========================================================== -->
-        <section
-            id="tentang"
-            ref="setRevealRef"
-            class="reveal-on-scroll scroll-mt-24 px-6 py-28 lg:px-8"
-        >
-            <div
-                class="mx-auto grid max-w-7xl gap-16 lg:grid-cols-[0.85fr_1.15fr] lg:items-center"
-            >
-                <div>
-                    <p
-                        class="text-sm font-bold uppercase tracking-[0.2em] text-blue-600"
-                    >
-                        Tentang Platform
-                    </p>
-
-                    <h2
-                        class="mt-4 text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl"
-                    >
-                        Satu sistem untuk organisasi yang terus berkembang.
-                    </h2>
-                </div>
-
-                <div>
-                    <p class="text-lg leading-8 text-slate-600">
-                        Organization Management System dirancang untuk
-                        menyederhanakan pengelolaan organisasi yang memiliki
-                        banyak tingkatan dan cabang.
-                    </p>
-
-                    <p class="mt-5 leading-7 text-slate-500">
-                        Setiap organisasi memiliki ruang pengelolaan
-                        masing-masing, sementara pengurus pada tingkat yang
-                        lebih tinggi tetap dapat memantau data sesuai
-                        kewenangannya.
-                    </p>
-
-                    <div
-                        class="mt-8 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-950"
-                    >
-                        Struktur terpusat
-                        <ArrowRight class="h-4 w-4 text-blue-600" />
-                        Akses sesuai kewenangan
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-        Organization Structure
-        ========================================================== -->
-        <section
-            ref="setRevealRef"
-            class="reveal-on-scroll bg-slate-50 px-6 py-24 lg:px-8"
-        >
-            <div class="mx-auto max-w-7xl">
-                <div class="max-w-2xl">
-                    <p
-                        class="text-sm font-bold uppercase tracking-[0.2em] text-blue-600"
-                    >
-                        Struktur Organisasi
-                    </p>
-
-                    <h2
-                        class="mt-4 text-4xl font-bold tracking-tight text-slate-950"
-                    >
-                        Dari pusat hingga unit terkecil.
-                    </h2>
-
-                    <p class="mt-5 leading-7 text-slate-500">
-                        Struktur parent-child memungkinkan organisasi mengelola
-                        ribuan cabang secara jelas dan terorganisir.
-                    </p>
-                </div>
-
-                <div class="mt-14 overflow-x-auto pb-4">
-                    <div
-                        class="mx-auto flex min-w-[850px] flex-col items-center"
-                    >
-                        <div
-                            class="rounded-2xl border border-slate-200 bg-white px-8 py-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                        >
-                            <div
-                                class="text-xs font-semibold uppercase tracking-widest text-blue-600"
-                            >
-                                Level 01
-                            </div>
-
-                            <div class="mt-1 font-bold">
-                                Pengurus Pusat
-                            </div>
-                        </div>
-
-                        <div class="h-10 w-px bg-slate-300" />
-
-                        <div class="h-px w-2/3 bg-slate-300" />
-
-                        <div class="grid w-2/3 grid-cols-3">
-                            <div class="flex flex-col items-center">
-                                <div class="h-8 w-px bg-slate-300" />
-
-                                <div
-                                    class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                                >
-                                    <div class="text-xs text-blue-600">
-                                        Level 02
-                                    </div>
-
-                                    <div class="mt-1 text-sm font-bold">
-                                        Wilayah
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col items-center">
-                                <div class="h-8 w-px bg-slate-300" />
-
-                                <div
-                                    class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                                >
-                                    <div class="text-xs text-blue-600">
-                                        Level 02
-                                    </div>
-
-                                    <div class="mt-1 text-sm font-bold">
-                                        Daerah
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col items-center">
-                                <div class="h-8 w-px bg-slate-300" />
-
-                                <div
-                                    class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                                >
-                                    <div class="text-xs text-blue-600">
-                                        Level 02
-                                    </div>
-
-                                    <div class="mt-1 text-sm font-bold">
-                                        Wilayah Khusus
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div
-                            class="mt-8 flex flex-wrap items-center justify-center gap-3"
-                        >
-                            <div
-                                class="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
-                            >
-                                Pengurus Cabang
-                            </div>
-
-                            <ChevronRight
-                                class="h-4 w-4 text-slate-400"
-                            />
-
-                            <div
-                                class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold"
-                            >
-                                Ranting / Unit
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-        Features
-        ========================================================== -->
-        <section
-            id="fitur"
-            ref="setRevealRef"
-            class="reveal-on-scroll scroll-mt-24 px-6 py-28 lg:px-8"
-        >
-            <div class="mx-auto max-w-7xl">
-                <div
-                    class="flex flex-col justify-between gap-6 md:flex-row md:items-end"
-                >
-                    <div class="max-w-2xl">
-                        <p
-                            class="text-sm font-bold uppercase tracking-[0.2em] text-blue-600"
-                        >
-                            Fitur Utama
-                        </p>
-
-                        <h2
-                            class="mt-4 text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl"
-                        >
-                            Semua yang dibutuhkan organisasi.
-                        </h2>
-                    </div>
-
-                    <p class="max-w-md text-sm leading-6 text-slate-500">
-                        Dirancang modular agar setiap bagian organisasi dapat
-                        bekerja lebih efektif dalam satu sistem.
-                    </p>
+        <main>
+            <!-- Hero -->
+            <section class="relative min-h-[90vh] overflow-hidden bg-slate-950 pt-20 text-white">
+                <div class="absolute inset-0 overflow-hidden">
+                    <div class="absolute -left-40 top-20 h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl blob blob-one" />
+                    <div class="absolute right-[-12rem] top-32 h-[34rem] w-[34rem] rounded-full bg-blue-500/20 blur-3xl blob blob-two" />
+                    <div class="absolute bottom-[-12rem] left-1/3 h-[30rem] w-[30rem] rounded-full bg-violet-500/15 blur-3xl blob blob-three" />
                 </div>
 
                 <div
-                    class="mt-14 grid gap-px overflow-hidden rounded-3xl border border-slate-200 bg-slate-200 md:grid-cols-2"
-                >
-                    <article
-                        v-for="feature in features"
-                        :key="feature.number"
-                        class="group bg-white p-8 transition-all duration-300 hover:bg-slate-950 hover:text-white"
-                    >
-                        <div class="flex items-start justify-between">
-                            <component
-                                :is="feature.icon"
-                                class="h-6 w-6 text-blue-600"
-                            />
+                    class="absolute inset-0 opacity-[0.06]"
+                    style="
+                        background-image:
+                            linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px);
+                        background-size: 44px 44px;
+                    "
+                />
 
-                            <span class="text-xs font-bold text-slate-300">
-                                {{ feature.number }}
-                            </span>
-                        </div>
-
-                        <h3 class="mt-16 text-2xl font-bold">
-                            {{ feature.title }}
-                        </h3>
-
-                        <p
-                            class="mt-4 max-w-md leading-7 text-slate-500 transition-colors duration-300 group-hover:text-slate-400"
-                        >
-                            {{ feature.description }}
-                        </p>
-
-                        <div
-                            class="mt-7 flex items-center gap-2 text-sm font-semibold"
-                        >
-                            Pelajari fitur
-
-                            <ArrowRight
-                                class="h-4 w-4 text-blue-600 transition-transform duration-300 group-hover:translate-x-1"
-                            />
-                        </div>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-        News
-        ========================================================== -->
-        <section
-            id="kegiatan"
-            ref="setRevealRef"
-            class="reveal-on-scroll scroll-mt-24 bg-slate-950 px-6 py-28 text-white lg:px-8"
-        >
-            <div class="mx-auto max-w-7xl">
-                <div
-                    class="flex flex-col justify-between gap-6 md:flex-row md:items-end"
-                >
-                    <div>
-                        <p
-                            class="text-sm font-bold uppercase tracking-[0.2em] text-cyan-400"
-                        >
-                            Informasi Terbaru
-                        </p>
-
-                        <h2
-                            class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl"
-                        >
-                            Berita & kegiatan.
-                        </h2>
-                    </div>
-
-                    <Link
-                        href="/berita"
-                        class="group inline-flex items-center gap-2 text-sm font-semibold text-white/70 transition-colors duration-300 hover:text-white"
-                    >
-                        Lihat semua berita
-
-                        <ArrowUpRight
-                            class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-0.5"
-                        />
-                    </Link>
-                </div>
-
-                <div
-                    v-if="displayedNews.length === 0"
-                    class="mt-14 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"
-                >
-                    <Newspaper
-                        class="mx-auto h-10 w-10 text-white/20"
-                    />
-
-                    <h3 class="mt-5 text-lg font-semibold">
-                        Belum ada berita
-                    </h3>
-
-                    <p class="mt-2 text-sm text-white/40">
-                        Informasi terbaru organisasi akan ditampilkan di sini.
-                    </p>
-                </div>
-
-                <div
-                    v-else
-                    class="mt-14 grid gap-6 lg:grid-cols-3"
-                >
-                    <article
-                        v-for="item in displayedNews.slice(0, 3)"
-                        :key="item.id"
-                        class="group overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-black/20"
-                    >
-                        <div
-                            class="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-700 to-slate-900"
-                        >
-                            <img
-                                v-if="item.image"
-                                :src="item.image"
-                                :alt="item.title"
-                                class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                            />
-
-                            <div
-                                v-else
-                                class="absolute inset-0 flex items-center justify-center"
-                            >
-                                <Newspaper
-                                    class="h-12 w-12 text-white/20"
-                                />
+                <div class="relative mx-auto flex min-h-[calc(90vh-5rem)] max-w-7xl items-center px-5 py-16 sm:px-6 lg:px-8">
+                    <div class="grid w-full items-center gap-16 lg:grid-cols-[1.05fr_.95fr]">
+                        <div>
+                            <div class="hero-reveal inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 backdrop-blur">
+                                <span class="h-2 w-2 rounded-full bg-emerald-400" />
+                                {{ org.status }} &middot; {{ org.parent }}
                             </div>
 
-                            <div
-                                class="absolute left-5 top-5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur"
-                            >
-                                {{ item.category }}
-                            </div>
-                        </div>
+                            <h1 class="hero-reveal hero-delay-1 mt-7 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight sm:text-5xl lg:text-6xl">
+                                {{ org.name }}
+                            </h1>
 
-                        <div class="p-7">
-                            <div class="text-xs text-white/40">
-                                {{ item.date }}
-                            </div>
-
-                            <h3
-                                class="mt-3 text-xl font-bold leading-snug"
-                            >
-                                {{ item.title }}
-                            </h3>
-
-                            <p
-                                class="mt-3 line-clamp-2 text-sm leading-6 text-white/50"
-                            >
-                                {{ item.excerpt }}
+                            <p class="hero-reveal hero-delay-2 mt-7 max-w-2xl text-base leading-8 text-slate-400 sm:text-lg">
+                                {{ org.description }}
                             </p>
 
-                            <Link
-                                href="/berita"
-                                class="group/link mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 transition-colors duration-300 hover:text-cyan-300"
-                            >
-                                Baca selengkapnya
+                            <div class="hero-reveal hero-delay-3 mt-8 flex flex-col gap-3 text-sm text-slate-300 sm:flex-row sm:flex-wrap sm:gap-6">
+                                <div class="flex items-center gap-2">
+                                    <MapPin class="h-4 w-4 text-cyan-300" />
+                                    {{ org.address }}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <Phone class="h-4 w-4 text-cyan-300" />
+                                    {{ org.phone }}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <Mail class="h-4 w-4 text-cyan-300" />
+                                    {{ org.email }}
+                                </div>
+                            </div>
 
-                                <ArrowRight
-                                    class="h-4 w-4 transition-transform duration-300 group-hover/link:translate-x-1"
+                            <div class="hero-reveal hero-delay-4 mt-9 flex flex-col gap-3 sm:flex-row">
+                                <a
+                                    href="#struktur"
+                                    class="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-slate-950 transition duration-300 hover:-translate-y-0.5 hover:bg-slate-200"
+                                >
+                                    Lihat Struktur Cabang
+                                    <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                </a>
+                                <a
+                                    href="#kegiatan"
+                                    class="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-7 py-3.5 text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-white/5"
+                                >
+                                    Kegiatan Cabang
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="hero-reveal hero-delay-5 relative hidden lg:block">
+                            <div class="absolute -inset-10 rounded-full bg-blue-500/10 blur-3xl" />
+
+                            <div class="relative rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
+                                <div class="flex items-center justify-between border-b border-white/10 pb-5">
+                                    <div>
+                                        <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
+                                            Ringkasan Cabang
+                                        </p>
+                                        <h2 class="mt-2 text-xl font-bold">Data Singkat</h2>
+                                    </div>
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-950">
+                                        <Landmark class="h-5 w-5" />
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 space-y-4">
+                                    <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                                        <span class="text-sm text-slate-400">Berdiri sejak</span>
+                                        <span class="text-sm font-bold text-white">{{ org.established }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                                        <span class="text-sm text-slate-400">Wilayah kerja</span>
+                                        <span class="text-sm font-bold text-white">{{ org.region }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                                        <span class="text-sm text-slate-400">Induk organisasi</span>
+                                        <span class="text-sm font-bold text-white">{{ org.parent }}</span>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3 pt-1">
+                                        <div
+                                            v-for="stat in org.stats.slice(0, 4)"
+                                            :key="stat.label"
+                                            class="rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-4 text-center"
+                                        >
+                                            <div class="text-xl font-black text-white">{{ stat.value }}</div>
+                                            <div class="mt-1 text-[11px] text-slate-400">{{ stat.label }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats bar -->
+            <section class="relative overflow-hidden border-b border-slate-200 bg-white">
+                <div class="absolute -right-32 top-10 h-72 w-72 rounded-full bg-cyan-100 blur-3xl blob blob-two" />
+
+                <div
+                    ref="setRevealRef"
+                    class="reveal-on-scroll relative mx-auto grid max-w-7xl grid-cols-2 divide-x divide-slate-200 sm:grid-cols-4 sm:divide-x px-5 sm:px-6 lg:px-8"
+                >
+                    <div v-for="stat in org.stats" :key="stat.label" class="px-4 py-10 text-center sm:px-6 lg:py-12">
+                        <div class="mt-1 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                            {{ stat.value }}
+                        </div>
+                        <div class="mt-1 text-xs font-medium text-slate-500 sm:text-sm">
+                            {{ stat.label }}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Profil -->
+            <section id="profil" class="relative overflow-hidden bg-slate-50 py-24 sm:py-32">
+                <div class="absolute -left-40 top-10 h-96 w-96 rounded-full bg-blue-200/40 blur-3xl blob blob-one" />
+                <div class="absolute -right-40 bottom-0 h-[30rem] w-[30rem] rounded-full bg-violet-200/30 blur-3xl blob blob-three" />
+
+                <div ref="setRevealRef" class="reveal-on-scroll relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+                    <div class="grid gap-14 lg:grid-cols-[.85fr_1.15fr] lg:items-start">
+                        <div>
+                            <span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+                                Profil Cabang
+                            </span>
+                            <h2 class="mt-6 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+                                Mengenal {{ org.name }}.
+                            </h2>
+                        </div>
+
+                        <div>
+                            <p class="text-lg leading-8 text-slate-600">
+                                {{ org.description }}
+                            </p>
+
+                            <div class="mt-9 grid gap-4 sm:grid-cols-2">
+                                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+                                        <CalendarDays class="h-5 w-5" />
+                                    </div>
+                                    <h3 class="mt-4 font-bold text-slate-950">Berdiri Sejak</h3>
+                                    <p class="mt-2 text-sm leading-6 text-slate-500">{{ org.established }}</p>
+                                </div>
+                                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+                                        <MapPin class="h-5 w-5" />
+                                    </div>
+                                    <h3 class="mt-4 font-bold text-slate-950">Wilayah Kerja</h3>
+                                    <p class="mt-2 text-sm leading-6 text-slate-500">{{ org.region }}</p>
+                                </div>
+                                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+                                        <Network class="h-5 w-5" />
+                                    </div>
+                                    <h3 class="mt-4 font-bold text-slate-950">Induk Organisasi</h3>
+                                    <p class="mt-2 text-sm leading-6 text-slate-500">{{ org.parent }}</p>
+                                </div>
+                                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+                                        <ShieldCheck class="h-5 w-5" />
+                                    </div>
+                                    <h3 class="mt-4 font-bold text-slate-950">Status</h3>
+                                    <p class="mt-2 text-sm leading-6 text-slate-500">{{ org.status }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Struktur Kepengurusan -->
+            <section id="struktur" class="relative overflow-hidden bg-white py-24 sm:py-32">
+                <div class="absolute right-[-12rem] top-20 h-[30rem] w-[30rem] rounded-full bg-cyan-100/70 blur-3xl blob blob-two" />
+                <div class="absolute bottom-[-10rem] left-[-10rem] h-[28rem] w-[28rem] rounded-full bg-blue-100/60 blur-3xl blob blob-one" />
+
+                <div ref="setRevealRef" class="reveal-on-scroll relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+                    <div class="mx-auto max-w-3xl text-center">
+                        <span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-600">
+                            Struktur Kepengurusan
+                        </span>
+                        <h2 class="mt-6 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+                            Pengurus Cabang periode berjalan.
+                        </h2>
+                        <p class="mt-5 text-base leading-8 text-slate-500 sm:text-lg">
+                            Jajaran pengurus yang bertanggung jawab menjalankan roda organisasi di tingkat cabang.
+                        </p>
+                    </div>
+
+                    <div class="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div
+                            v-for="person in displayedPengurus"
+                            :key="person.name"
+                            class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
+                        >
+                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white">
+                                {{ person.name.split(' ').map((n) => n[0]).slice(0, 2).join('') }}
+                            </div>
+                            <h3 class="mt-5 font-bold text-slate-950">{{ person.name }}</h3>
+                            <p class="mt-1 text-sm font-semibold text-blue-600">{{ person.position }}</p>
+                            <p class="mt-1 text-xs text-slate-500">{{ person.division }}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Ranting & Unit -->
+            <section id="ranting" class="relative overflow-hidden bg-slate-950 py-24 text-white sm:py-32">
+                <div class="absolute -left-48 top-20 h-[32rem] w-[32rem] rounded-full bg-blue-500/15 blur-3xl blob blob-one" />
+                <div class="absolute right-[-12rem] top-[-8rem] h-[34rem] w-[34rem] rounded-full bg-violet-500/15 blur-3xl blob blob-two" />
+
+                <div ref="setRevealRef" class="reveal-on-scroll relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+                    <div class="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+                        <div class="max-w-3xl">
+                            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                                Ranting & Unit
+                            </span>
+                            <h2 class="mt-6 text-4xl font-black tracking-tight sm:text-5xl">
+                                Jaringan di bawah cabang ini.
+                            </h2>
+                            <p class="mt-5 text-base leading-8 text-slate-400 sm:text-lg">
+                                Ranting dan unit yang berada dalam koordinasi langsung Pengurus Cabang.
+                            </p>
+                        </div>
+
+                        <div class="hidden h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-white/5 lg:flex">
+                            <Award class="h-9 w-9 text-cyan-300" />
+                        </div>
+                    </div>
+
+                    <div class="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <article
+                            v-for="item in displayedSubOrg"
+                            :key="item.name"
+                            class="group rounded-3xl border border-white/10 bg-white/[0.04] p-7 transition duration-500 hover:-translate-y-1 hover:bg-white/[0.07]"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950">
+                                    <Building2 v-if="item.type === 'Unit'" class="h-5 w-5" />
+                                    <Network v-else class="h-5 w-5" />
+                                </div>
+                                <span class="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-slate-300">
+                                    {{ item.type }}
+                                </span>
+                            </div>
+                            <h3 class="mt-6 text-lg font-bold">{{ item.name }}</h3>
+                            <p class="mt-2 flex items-center gap-2 text-sm text-slate-400">
+                                <Users class="h-4 w-4" />
+                                {{ item.members }} anggota
+                            </p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Kegiatan / Berita cabang -->
+            <section id="kegiatan" class="relative overflow-hidden bg-slate-50 py-24 sm:py-32">
+                <div class="absolute -right-48 top-0 h-[34rem] w-[34rem] rounded-full bg-blue-200/40 blur-3xl blob blob-two" />
+                <div class="absolute -left-40 bottom-[-10rem] h-[30rem] w-[30rem] rounded-full bg-violet-200/30 blur-3xl blob blob-three" />
+
+                <div ref="setRevealRef" class="reveal-on-scroll relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+                    <div class="flex flex-col justify-between gap-7 md:flex-row md:items-end">
+                        <div class="max-w-3xl">
+                            <span class="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-600">
+                                Kegiatan Cabang
+                            </span>
+                            <h2 class="mt-6 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+                                Aktivitas terbaru cabang ini.
+                            </h2>
+                            <p class="mt-5 text-base leading-8 text-slate-500 sm:text-lg">
+                                Dokumentasi kegiatan dan informasi terbaru dari Pengurus Cabang.
+                            </p>
+                        </div>
+
+                        <Link href="/berita" class="group inline-flex shrink-0 items-center gap-2 text-sm font-bold text-slate-950">
+                            Lihat semua berita
+                            <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                    </div>
+
+                    <div class="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        <article
+                            v-for="item in displayedNews.slice(0, 3)"
+                            :key="item.id"
+                            class="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition duration-500 hover:-translate-y-1 hover:shadow-xl"
+                        >
+                            <div class="relative flex h-52 items-center justify-center overflow-hidden bg-slate-950">
+                                <img
+                                    v-if="item.image"
+                                    :src="item.image"
+                                    :alt="item.title"
+                                    class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
                                 />
+                                <div v-else class="absolute inset-0">
+                                    <div class="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
+                                    <div class="absolute -bottom-20 -right-10 h-52 w-52 rounded-full bg-violet-500/20 blur-3xl" />
+                                    <Newspaper class="relative h-12 w-12 text-white/60 mx-auto mt-16" />
+                                </div>
+                                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-5">
+                                    <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur">
+                                        {{ item.category }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="p-6">
+                                <div class="flex items-center gap-2 text-xs text-slate-400">
+                                    <CalendarDays class="h-3.5 w-3.5" />
+                                    {{ item.date }}
+                                </div>
+                                <h3 class="mt-4 text-lg font-bold leading-7 text-slate-950 transition group-hover:text-blue-600">
+                                    {{ item.title }}
+                                </h3>
+                                <p class="mt-3 line-clamp-3 text-sm leading-6 text-slate-500">
+                                    {{ item.excerpt }}
+                                </p>
+                                <div class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-slate-950">
+                                    Baca selengkapnya
+                                    <ChevronRight class="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA -->
+            <section class="relative overflow-hidden bg-white py-24 sm:py-32">
+                <div class="absolute left-[-12rem] top-[-8rem] h-[32rem] w-[32rem] rounded-full bg-cyan-100/60 blur-3xl blob blob-one" />
+                <div class="absolute right-[-12rem] bottom-[-10rem] h-[34rem] w-[34rem] rounded-full bg-violet-100/60 blur-3xl blob blob-three" />
+
+                <div ref="setRevealRef" class="reveal-on-scroll relative mx-auto max-w-5xl px-5 text-center sm:px-6 lg:px-8">
+                    <div class="rounded-[2.5rem] border border-slate-200 bg-slate-950 px-7 py-14 text-white shadow-2xl sm:px-12 sm:py-16">
+                        <Landmark class="mx-auto h-9 w-9 text-cyan-300" />
+                        <h2 class="mx-auto mt-7 max-w-3xl text-4xl font-black tracking-tight sm:text-5xl">
+                            Ingin bergabung dengan {{ org.name }}?
+                        </h2>
+                        <p class="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-400">
+                            Masuk ke sistem untuk melihat data anggota, ranting, unit, dan kegiatan cabang secara lengkap.
+                        </p>
+                        <div class="mt-9">
+                            <Link
+                                href="/login"
+                                class="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-slate-200"
+                            >
+                                Masuk ke Sistem
+                                <ArrowRight class="h-4 w-4" />
                             </Link>
                         </div>
-                    </article>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
+        </main>
 
-        <!-- =========================================================
-        CTA
-        ========================================================== -->
-        <section
-            ref="setRevealRef"
-            class="reveal-on-scroll px-6 py-24 lg:px-8"
-        >
-            <div
-                class="mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 via-indigo-600 to-slate-950 px-8 py-16 text-white sm:px-14"
-            >
-                <div class="max-w-3xl">
-                    <p
-                        class="text-sm font-semibold uppercase tracking-[0.2em] text-white/60"
-                    >
-                        Mulai Sekarang
-                    </p>
-
-                    <h2
-                        class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl"
-                    >
-                        Bangun organisasi yang lebih terhubung.
-                    </h2>
-
-                    <p
-                        class="mt-5 max-w-2xl leading-7 text-white/70"
-                    >
-                        Kelola seluruh struktur, anggota, kegiatan, dan
-                        administrasi organisasi dari satu platform.
-                    </p>
-
-                    <Link
-                        href="/login"
-                        class="group mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-950 transition-all duration-300 hover:-translate-y-1 hover:bg-slate-100 hover:shadow-xl"
-                    >
-                        Masuk ke Sistem
-
-                        <ArrowRight
-                            class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
-                        />
-                    </Link>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-        Footer
-        ========================================================== -->
-        <footer class="border-t border-slate-200 px-6 py-10 lg:px-8">
-            <div
-                class="mx-auto flex max-w-7xl flex-col justify-between gap-6 md:flex-row md:items-center"
-            >
-                <div class="flex items-center gap-3">
-                    <div
-                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white"
-                    >
-                        <Network class="h-4 w-4" />
+        <!-- Footer -->
+        <footer class="border-t border-slate-200 bg-slate-950 text-white">
+            <div class="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
+                <div class="grid gap-12 md:grid-cols-[1.4fr_.6fr_.6fr]">
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950">
+                                OM
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-bold tracking-[0.25em]">ORGANIZATION</div>
+                                <div class="text-[9px] tracking-[0.2em] text-slate-500">MANAGEMENT SYSTEM</div>
+                            </div>
+                        </div>
+                        <p class="mt-6 max-w-md text-sm leading-7 text-slate-500">
+                            {{ org.name }} adalah bagian dari {{ org.parent }}, mengelola anggota, ranting, unit, dan
+                            kegiatan di wilayah {{ org.region }}.
+                        </p>
                     </div>
 
                     <div>
-                        <div class="text-sm font-bold">
-                            ORGANIZATION
+                        <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Navigasi</h3>
+                        <div class="mt-5 space-y-3">
+                            <a href="#profil" class="block text-sm text-slate-500 transition hover:text-white">Profil</a>
+                            <a href="#struktur" class="block text-sm text-slate-500 transition hover:text-white">Struktur</a>
+                            <a href="#ranting" class="block text-sm text-slate-500 transition hover:text-white">Ranting & Unit</a>
+                            <a href="#kegiatan" class="block text-sm text-slate-500 transition hover:text-white">Kegiatan</a>
                         </div>
+                    </div>
 
-                        <div
-                            class="text-[10px] uppercase tracking-[0.2em] text-slate-400"
-                        >
-                            Management System
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Kontak</h3>
+                        <div class="mt-5 space-y-3 text-sm text-slate-500">
+                            <p class="flex items-start gap-2">
+                                <MapPin class="mt-0.5 h-4 w-4 shrink-0" />
+                                {{ org.address }}
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <Phone class="h-4 w-4 shrink-0" />
+                                {{ org.phone }}
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <Mail class="h-4 w-4 shrink-0" />
+                                {{ org.email }}
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                <div class="text-sm text-slate-400">
-                    © {{ new Date().getFullYear() }}
-                    Organization Management System.
-                </div>
-
-                <div class="flex gap-6 text-sm text-slate-500">
-                    <a
-                        href="#"
-                        class="transition-colors duration-300 hover:text-slate-950"
-                    >
-                        Privasi
-                    </a>
-
-                    <a
-                        href="#"
-                        class="transition-colors duration-300 hover:text-slate-950"
-                    >
-                        Ketentuan
-                    </a>
+                <div class="mt-14 flex flex-col gap-4 border-t border-white/10 pt-7 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                    <p>© {{ new Date().getFullYear() }} Organization Management System. All rights reserved.</p>
+                    <div class="flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-emerald-400" />
+                        System Operational
+                    </div>
                 </div>
             </div>
         </footer>
 
-        <!-- =========================================================
-        Back To Top
-        ========================================================== -->
         <Transition
-            enter-active-class="transition-all duration-300 ease-out"
-            enter-from-class="translate-y-4 scale-75 opacity-0"
-            enter-to-class="translate-y-0 scale-100 opacity-100"
-            leave-active-class="transition-all duration-200 ease-in"
-            leave-from-class="translate-y-0 scale-100 opacity-100"
-            leave-to-class="translate-y-4 scale-75 opacity-0"
+            enter-active-class="transition duration-300"
+            enter-from-class="opacity-0 translate-y-3"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-200"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 translate-y-3"
         >
             <button
                 v-if="showBackToTop"
                 type="button"
+                class="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white shadow-xl transition hover:-translate-y-1 hover:bg-slate-800"
                 aria-label="Kembali ke atas"
-                class="group fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-slate-950/90 text-white shadow-xl shadow-slate-950/20 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-blue-600 hover:shadow-blue-600/25 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 @click="scrollToTop"
             >
-                <ArrowUp
-                    class="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5"
-                />
+                <ArrowUp class="h-5 w-5" />
             </button>
         </Transition>
     </div>
 </template>
 
 <style scoped>
-.page-loading {
-    opacity: 0;
+html {
+    scroll-behavior: smooth;
+}
+
+.page-loading,
+.page-loaded {
+    opacity: 1;
 }
 
 .page-loaded {
-    opacity: 1;
     transition: opacity 700ms ease;
 }
 
 .hero-reveal {
     opacity: 0;
     transform: translateY(24px);
-    animation: heroReveal 800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: heroReveal 850ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .hero-delay-1 {
     animation-delay: 100ms;
 }
-
 .hero-delay-2 {
     animation-delay: 220ms;
 }
-
 .hero-delay-3 {
     animation-delay: 340ms;
 }
-
 .hero-delay-4 {
     animation-delay: 460ms;
 }
-
 .hero-delay-5 {
     animation-delay: 580ms;
 }
 
 .reveal-on-scroll {
-    opacity: 0;
-    transform: translateY(32px);
-    transition:
-        opacity 800ms cubic-bezier(0.22, 1, 0.36, 1),
-        transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.reveal-on-scroll.is-visible {
     opacity: 1;
     transform: translateY(0);
+    transition:
+        opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal-on-scroll.reveal-ready {
+    opacity: 0;
+    transform: translateY(36px);
+}
+
+.reveal-on-scroll.reveal-ready.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.blob {
+    animation: blobFloat 14s ease-in-out infinite;
+}
+
+.blob-one {
+    animation-delay: 0s;
+}
+.blob-two {
+    animation-delay: -4s;
+}
+.blob-three {
+    animation-delay: -8s;
 }
 
 @keyframes heroReveal {
@@ -1067,10 +918,22 @@ const displayedNews = props.news.length
         opacity: 0;
         transform: translateY(24px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes blobFloat {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    33% {
+        transform: translate3d(25px, -20px, 0) scale(1.04);
+    }
+    66% {
+        transform: translate3d(-20px, 25px, 0) scale(0.97);
     }
 }
 
@@ -1078,11 +941,22 @@ const displayedNews = props.news.length
     .page-loading,
     .page-loaded,
     .hero-reveal,
-    .reveal-on-scroll {
+    .reveal-on-scroll,
+    .blob {
         opacity: 1;
         transform: none;
         animation: none;
         transition: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .hero-reveal {
+        animation-duration: 650ms;
+    }
+    .reveal-on-scroll {
+        transform: translateY(22px);
+        transition-duration: 650ms;
     }
 }
 </style>
